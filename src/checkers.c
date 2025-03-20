@@ -28,6 +28,18 @@ static inline int bitlen_u128(uint128_t u) {
    (((adj >> (p - 10)) & 0x40000) >> 14) |                                   \
    (((adj >> (p - 10)) & 0x80000) >> 14))
 
+const int BOARD_DISTANCES[81] = {
+    0, 1, 2,  3,  4,  5,  6,  7,  8,   // 0
+    1, 2, 3,  4,  5,  6,  7,  8,  9,   // 1
+    2, 3, 4,  5,  6,  7,  8,  9,  10,  // 2
+    3, 4, 5,  6,  7,  8,  9,  10, 11,  // 3
+    4, 5, 6,  7,  8,  9,  10, 11, 12,  // 4
+    5, 6, 7,  8,  9,  10, 11, 12, 13,  // 5
+    6, 7, 8,  9,  10, 11, 12, 13, 14,  // 6
+    7, 8, 9,  10, 11, 12, 13, 14, 15,  // 7
+    8, 9, 10, 11, 12, 13, 14, 15, 16,  // 8
+};
+
 int gen_moves(struct board_t *board, uint128_t from, struct list_head *moves) {
   int len = 0;
   int src, dst;
@@ -71,7 +83,33 @@ void apply_move(struct board_t *board, struct move_t *move, enum color_t turn) {
   }
 }
 
-int game_apply_move(struct game_t *game, struct move_t *move) {
+void game_apply_move(struct game_t *game, struct move_t *move) {
+  if (game->turn == RED) {
+    game->board.red &= ~MASK_AT(move->src);
+    game->board.red |= MASK_AT(move->dst);
+    game->turn = GREEN;
+  } else {
+    game->board.green &= ~MASK_AT(move->src);
+    game->board.green |= MASK_AT(move->dst);
+    game->turn = RED;
+    game->round++;
+  }
+}
+
+void game_undo_move(struct game_t *game, struct move_t *move) {
+  if (game->turn == GREEN) {
+    game->board.red &= ~MASK_AT(move->dst);
+    game->board.red |= MASK_AT(move->src);
+    game->turn = RED;
+  } else {
+    game->board.green &= ~MASK_AT(move->dst);
+    game->board.green |= MASK_AT(move->src);
+    game->turn = GREEN;
+    game->round--;
+  }
+}
+
+int game_apply_move_with_check(struct game_t *game, struct move_t *move) {
   if (game->turn == RED) {
     if (!(game->board.red >> move->src & 1)) {
       return -1;
@@ -169,4 +207,18 @@ void draw_board(struct board_t *board) {
     printf("\n");
   }
   printf("\n");
+}
+
+int game_evaluate(struct game_t *game) {
+  uint128_t current_color =
+      game->turn == RED ? game->board.red : game->board.green;
+  int p, score = 0;
+  u128_for_each_1(current_color, p) {
+    if (game->turn == RED) {
+      score += (16 - BOARD_DISTANCES[p]);
+    } else {
+      score += BOARD_DISTANCES[p];
+    }
+  }
+  return score;
 }

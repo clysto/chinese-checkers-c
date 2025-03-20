@@ -63,9 +63,7 @@ static inline void list_del(struct list_head *entry) {
 /**
  * Check if the list is empty
  */
-static inline int list_empty(const struct list_head *head) {
-  return head->next == head;
-}
+#define list_empty(head) ((head)->next == (head))
 
 /**
  * Iterate through the list
@@ -88,6 +86,12 @@ static inline int list_empty(const struct list_head *head) {
        pos = list_entry(pos->member.next, typeof(*pos), member))
 
 /**
+ * Iterate through all elements in the list, safe against removal
+ */
+#define list_for_each_safe(pos, n, head) \
+  for (pos = (head)->next, n = pos->next; pos != (head); pos = n, n = pos->next)
+
+/**
  * Get the first element in the list
  */
 #define list_head_entry(head, type, member) \
@@ -99,4 +103,25 @@ static inline int list_empty(const struct list_head *head) {
 #define list_tail_entry(head, type, member) \
   list_entry((head)->prev, type, member)
 
+/**
+ * Get the element at the given index
+ */
+#define list_nth_entry(pos, head, n, member)   \
+  do {                                         \
+    struct list_head *p = (head)->next;        \
+    for (int i = 0; i < n; i++) {              \
+      p = p->next;                             \
+    }                                          \
+    pos = list_entry(p, typeof(*pos), member); \
+  } while (0)
+
+/**
+ * Get list length
+ */
+static inline int list_len(const struct list_head *head) {
+  int len = 0;
+  struct list_head *pos;
+  list_for_each(pos, head) { len++; }
+  return len;
+}
 #endif  // _LIST_H

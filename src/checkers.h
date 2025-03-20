@@ -12,6 +12,8 @@
 #define INITIAL_GREEN 0x80c0e0f
 #define MASK_AT(p) ((uint128_t)1 << p)
 
+extern const int BOARD_DISTANCES[81];
+
 enum color_t {
   RED,
   GREEN,
@@ -46,6 +48,12 @@ void apply_move(struct board_t *board, struct move_t *move, enum color_t turn);
 
 void game_str(struct game_t *game, char *str);
 
-int game_apply_move(struct game_t *game, struct move_t *move);
+int game_apply_move_with_check(struct game_t *game, struct move_t *move);
+
+void game_apply_move(struct game_t *game, struct move_t *move);
+
+void game_undo_move(struct game_t *game, struct move_t *move);
+
+int game_evaluate(struct game_t *game);
 
 #endif  // _CHECKERS_H

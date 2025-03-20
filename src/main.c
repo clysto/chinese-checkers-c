@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -55,9 +56,26 @@ int main1(int argc, char *argv[]) {
 
 int main(void) {
   struct game_t game = {INIT_BOARD, RED, 1};
+  struct move_t user_move = {-1, -1};
   struct move_t best_move = {-1, -1};
-  draw_board(&game.board);
-  alpha_beta_search(&game, 5, -INT_MAX, INT_MAX, &best_move);
-  printf("Best move: %02d->%02d\n", best_move.src, best_move.dst);
+
+  while (1) {
+    draw_board(&game.board);
+
+    if (game.turn == RED) {
+      printf("Your turn (RED). Enter your move (src dst): ");
+      if (scanf("%hhu %hhu", &user_move.src, &user_move.dst) != 2) {
+        printf("Invalid input. Please enter two integers.\n");
+        continue;
+      }
+      game_apply_move(&game, &user_move);
+    } else {
+      printf("AI's turn (GREEN).\n");
+      alpha_beta_search(&game, 7, -INT_MAX, INT_MAX, &best_move);
+      printf("AI move: %02d->%02d\n", best_move.src, best_move.dst);
+      game_apply_move(&game, &best_move);
+    }
+  }
+
   return 0;
 }

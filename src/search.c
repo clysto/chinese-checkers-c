@@ -19,6 +19,7 @@ int alpha_beta_search(struct game_t *game, int depth, int alpha, int beta,
   int score;
   struct list_head *pos, *_n;
   struct move_t *move;
+  struct move_t _best_move;
   LIST_HEAD(moves);
 
   if (depth == 0) {
@@ -30,7 +31,7 @@ int alpha_beta_search(struct game_t *game, int depth, int alpha, int beta,
   list_for_each_safe(pos, _n, &moves) {
     move = list_entry(pos, struct move_t, list);
     game_apply_move(game, move);
-    score = -alpha_beta_search(game, depth - 1, -beta, -alpha, best_move);
+    score = -alpha_beta_search(game, depth - 1, -beta, -alpha, &_best_move);
     game_undo_move(game, move);
     if (score >= beta) {
       free_moves(&moves);

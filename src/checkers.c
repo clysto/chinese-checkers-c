@@ -40,6 +40,18 @@ const int BOARD_DISTANCES[81] = {
     8, 9, 10, 11, 12, 13, 14, 15, 16,  // 8
 };
 
+const int SCORE_TABLE[81] = {
+    0,  4,  5,  12, 0,  0,  10, 10, 10,  // 0
+    4,  6,  13, 16, 20, 21, 14, 11, 10,  // 1
+    5,  13, 17, 21, 22, 24, 23, 20, 12,  // 2
+    12, 16, 21, 23, 25, 26, 28, 27, 20,  // 3
+    0,  20, 22, 25, 27, 29, 30, 32, 31,  // 4
+    0,  21, 24, 26, 29, 31, 33, 34, 36,  // 5
+    10, 14, 23, 28, 30, 33, 35, 36, 38,  // 6
+    10, 11, 20, 27, 32, 34, 36, 38, 40,  // 7
+    10, 10, 12, 20, 31, 36, 38, 40, 42,  // 8
+};
+
 int gen_moves(struct board_t *board, uint128_t from, struct list_head *moves) {
   int len = 0;
   int src, dst;
@@ -206,19 +218,19 @@ void draw_board(struct board_t *board) {
     }
     printf("\n");
   }
-  printf("\n");
 }
 
 int game_evaluate(struct game_t *game) {
-  uint128_t current_color =
-      game->turn == RED ? game->board.red : game->board.green;
-  int p, score = 0;
-  u128_for_each_1(current_color, p) {
-    if (game->turn == RED) {
-      score += (16 - BOARD_DISTANCES[p]);
-    } else {
-      score += BOARD_DISTANCES[p];
-    }
+  int p, red_score = 0, green_score = 0;
+  uint128_t red = game->board.red;
+  uint128_t green = game->board.green;
+  u128_for_each_1(red, p) {
+    red_score += (SCORE_TABLE[80 - p]);
+    red_score += ADJ_POSITIONS[p] & red ? 5 : 0;
   }
-  return score;
+  u128_for_each_1(green, p) {
+    green_score += (SCORE_TABLE[p]);
+    green_score += ADJ_POSITIONS[p] & green ? 5 : 0;
+  }
+  return game->turn == RED ? red_score - green_score : green_score - red_score;
 }

@@ -1,6 +1,7 @@
 #ifndef _CHECKERS_H
 #define _CHECKERS_H
 
+#include <limits.h>
 #include <stdint.h>
 
 #include "list.h"
@@ -11,6 +12,9 @@
 #define INITIAL_RED (((uint128_t)0x1e0e0 << 64) | 0x6020000000000000)
 #define INITIAL_GREEN 0x80c0e0f
 #define MASK_AT(p) ((uint128_t)1 << p)
+#define SCORE_MAX (INT_MAX)
+#define SCORE_MIN (-INT_MAX)
+#define SCORE_NAN (INT_MIN)
 
 extern const int BOARD_DISTANCES[81];
 
@@ -28,6 +32,7 @@ struct game_t {
   struct board_t board;
   enum color_t turn;
   int round;
+  uint64_t hash;
 };
 
 struct move_t {
@@ -38,13 +43,15 @@ struct move_t {
 
 #define INIT_BOARD {INITIAL_RED, INITIAL_GREEN}
 
+void init_zobrist();
+
 int gen_moves(struct board_t *board, uint128_t from, struct list_head *moves);
+
+void sort_moves(struct list_head *moves, enum color_t color);
 
 void jump_moves(struct board_t *board, int src, uint128_t *to);
 
 void draw_board(struct board_t *board);
-
-void apply_move(struct board_t *board, struct move_t *move, enum color_t turn);
 
 void game_str(struct game_t *game, char *str);
 
@@ -54,6 +61,12 @@ void game_apply_move(struct game_t *game, struct move_t *move);
 
 void game_undo_move(struct game_t *game, struct move_t *move);
 
+void game_apply_null_move(struct game_t *game);
+
+void game_undo_null_move(struct game_t *game);
+
 int game_evaluate(struct game_t *game);
+
+uint64_t game_hash(struct game_t *game);
 
 #endif  // _CHECKERS_H

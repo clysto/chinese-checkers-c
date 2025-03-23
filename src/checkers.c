@@ -5,6 +5,9 @@
 
 #include "constants.h"
 
+uint64_t _zobrist[81][3];
+uint64_t _zobrist_color;
+
 static inline int bitlen_u128(uint128_t u) {
   if (u == 0) {
     return 0;
@@ -41,16 +44,44 @@ const int BOARD_DISTANCES[81] = {
 };
 
 const int SCORE_TABLE[81] = {
-    0,  4,  5,  12, 0,  0,  10, 10, 10,  // 0
-    4,  6,  13, 16, 20, 21, 14, 11, 10,  // 1
-    5,  13, 17, 21, 22, 24, 23, 20, 12,  // 2
-    12, 16, 21, 23, 25, 26, 28, 27, 20,  // 3
+    0,  2,  2,  6,  0,  0,  10, 10, 10,  // 0
+    2,  12, 13, 16, 20, 21, 14, 11, 10,  // 1
+    2,  13, 13, 21, 22, 24, 23, 20, 12,  // 2
+    6,  16, 21, 23, 25, 26, 28, 27, 20,  // 3
     0,  20, 22, 25, 27, 29, 30, 32, 31,  // 4
     0,  21, 24, 26, 29, 31, 33, 34, 36,  // 5
     10, 14, 23, 28, 30, 33, 35, 36, 38,  // 6
     10, 11, 20, 27, 32, 34, 36, 38, 40,  // 7
     10, 10, 12, 20, 31, 36, 38, 40, 42,  // 8
 };
+
+uint64_t rand64() {
+  return rand() ^ ((uint64_t)rand() << 15) ^ ((uint64_t)rand() << 30) ^
+         ((uint64_t)rand() << 45) ^ ((uint64_t)rand() << 60);
+}
+
+void init_zobrist() {
+  _zobrist_color = rand64();
+  for (int i = 0; i < 81; i++) {
+    _zobrist[i][0] = rand64();
+    _zobrist[i][1] = rand64();
+    _zobrist[i][2] = rand64();
+  }
+}
+
+uint64_t game_hash(struct game_t *game) {
+  uint64_t hash = 0;
+  uint128_t red = game->board.red;
+  uint128_t green = game->board.green;
+  int p;
+  u128_for_each_1(red, p) { hash ^= _zobrist[p][0]; }
+  u128_for_each_1(green, p) { hash ^= _zobrist[p][1]; }
+  if (game->turn == GREEN) {
+    hash ^= _zobrist_color;
+  }
+  game->hash = hash;
+  return hash;
+}
 
 int gen_moves(struct board_t *board, uint128_t from, struct list_head *moves) {
   int len = 0;
@@ -85,17 +116,40 @@ void jump_moves(struct board_t *board, int src, uint128_t *to) {
   return;
 }
 
-void apply_move(struct board_t *board, struct move_t *move, enum color_t turn) {
-  if (turn == RED) {
-    board->red &= ~MASK_AT(move->src);
-    board->red |= MASK_AT(move->dst);
+void sort_moves(struct list_head *moves, enum color_t color) {
+  struct list_head buckets[64];
+  for (int i = 0; i < 64; i++) {
+    INIT_LIST_HEAD(&buckets[i]);
+  }
+
+  struct list_head *pos, *_n;
+  struct move_t *move;
+  list_for_each_safe(pos, _n, moves) {
+    move = list_entry(pos, struct move_t, list);
+    list_del(pos);
+    int distance = BOARD_DISTANCES[move->dst] - BOARD_DISTANCES[move->src];
+    list_add_tail(
+        pos,
+        &buckets[distance + 16]);  // Offset by 16 to handle negative distances
+  }
+
+  if (color == RED) {
+    for (int i = 0; i < 64; i++) {
+      list_splice_tail(&buckets[i], moves);
+    }
   } else {
-    board->green &= ~MASK_AT(move->src);
-    board->green |= MASK_AT(move->dst);
+    for (int i = 63; i >= 0; i--) {
+      list_splice_tail(&buckets[i], moves);
+    }
   }
 }
 
 void game_apply_move(struct game_t *game, struct move_t *move) {
+  if (game->hash != 0) {
+    game->hash ^= _zobrist[move->src][game->turn];
+    game->hash ^= _zobrist[move->dst][game->turn];
+    game->hash ^= _zobrist_color;
+  }
   if (game->turn == RED) {
     game->board.red &= ~MASK_AT(move->src);
     game->board.red |= MASK_AT(move->dst);
@@ -118,6 +172,31 @@ void game_undo_move(struct game_t *game, struct move_t *move) {
     game->board.green |= MASK_AT(move->src);
     game->turn = GREEN;
     game->round--;
+  }
+  if (game->hash != 0) {
+    game->hash ^= _zobrist[move->src][game->turn];
+    game->hash ^= _zobrist[move->dst][game->turn];
+    game->hash ^= _zobrist_color;
+  }
+}
+
+void game_apply_null_move(struct game_t *game) {
+  if (game->hash != 0) {
+    game->hash ^= _zobrist_color;
+  }
+  game->turn = game->turn == RED ? GREEN : RED;
+  if (game->turn == RED) {
+    game->round++;
+  }
+}
+
+void game_undo_null_move(struct game_t *game) {
+  game->turn = game->turn == RED ? GREEN : RED;
+  if (game->turn == GREEN) {
+    game->round--;
+  }
+  if (game->hash != 0) {
+    game->hash ^= _zobrist_color;
   }
 }
 
@@ -153,7 +232,7 @@ int game_apply_move_with_check(struct game_t *game, struct move_t *move) {
     return -1;
   }
 
-  apply_move(&(game->board), move, game->turn);
+  game_apply_move(game, move);
 
   game->turn = game->turn == RED ? GREEN : RED;
   if (game->turn == RED) {

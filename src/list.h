@@ -124,4 +124,22 @@ static inline int list_len(const struct list_head *head) {
   list_for_each(pos, head) { len++; }
   return len;
 }
+
+static inline void list_splice_tail(struct list_head *list,
+                                    struct list_head *head) {
+  if (list_empty(list)) {
+    return;
+  }
+
+  struct list_head *first = list->next;
+  struct list_head *last = list->prev;
+  struct list_head *tail = head->prev;
+
+  tail->next = first;
+  first->prev = tail;
+
+  last->next = head;
+  head->prev = last;
+}
+
 #endif  // _LIST_H

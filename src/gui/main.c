@@ -41,8 +41,12 @@ void *search_ai_move(void *arg) {
     int eval = alpha_beta_search(&_game, d, SCORE_MIN, SCORE_MAX, &_best_move,
                                  stop_time);
     if (eval != SCORE_NAN) {
-      best_move = _best_move;
       printf("Depth: %d, Eval: %d\n", d, eval);
+      if (eval == SCORE_WIN) {
+        best_move = _best_move;
+        break;
+      }
+      best_move = _best_move;
     }
   }
   printf("AI move: %02d->%02d\n", best_move.src, best_move.dst);
@@ -108,8 +112,8 @@ void gui_draw_board(float x0, float y0, float r, float gap) {
       }
 
       if (ai_last_move.src == p || ai_last_move.dst == p) {
-        DrawRectangleV((Vector2){x0 + dx - 3, y0 + dy - 3},
-                       (Vector2){6, 6}, YELLOW);
+        DrawRectangleV((Vector2){x0 + dx - 3, y0 + dy - 3}, (Vector2){6, 6},
+                       WHITE);
       }
 
       index++;

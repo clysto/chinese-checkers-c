@@ -19,6 +19,31 @@ static inline int bitlen_u128(uint128_t u) {
     return 64 - __builtin_clzll((uint64_t)u);
   }
 }
+
+static inline int msb_u128(uint128_t u) {
+  if (u == 0) {
+    return -1;
+  }
+  uint64_t upper = u >> 64;
+  if (upper) {
+    return 127 - __builtin_clzll(upper);
+  } else {
+    return 63 - __builtin_clzll((uint64_t)u);
+  }
+}
+
+static inline int lsb_u128(uint128_t u) {
+  if (u == 0) {
+    return -1;
+  }
+  uint64_t lower = u;
+  if (lower) {
+    return __builtin_ctzll(lower);
+  } else {
+    return 64 + __builtin_ctzll(u >> 64);
+  }
+}
+
 // Iterate over each set bit (1) in a 128-bit unsigned integer `u`,
 // updating `i` with the index of the highest set bit in each iteration.
 #define u128_for_each_1(u, i) \
@@ -309,14 +334,16 @@ int game_evaluate(struct game_t *game) {
   int p, red_score = 0, green_score = 0;
   uint128_t red = game->board.red;
   uint128_t green = game->board.green;
-  u128_for_each_1(red, p) {
-    red_score += (SCORE_TABLE[80 - p]);
-    // red_score += ADJ_POSITIONS[p] & red ? 5 : 0;
+
+  if (BOARD_DISTANCES[msb_u128(red)] == 3) {
+    return game->turn == PIECE_RED ? SCORE_WIN : -SCORE_WIN;
   }
-  u128_for_each_1(green, p) {
-    green_score += (SCORE_TABLE[p]);
-    // green_score += ADJ_POSITIONS[p] & green ? 5 : 0;
+  if (BOARD_DISTANCES[lsb_u128(green)] == 13) {
+    return game->turn == PIECE_GREEN ? SCORE_WIN : -SCORE_WIN;
   }
+
+  u128_for_each_1(red, p) { red_score += (SCORE_TABLE[80 - p]); }
+  u128_for_each_1(green, p) { green_score += (SCORE_TABLE[p]); }
   return game->turn == PIECE_RED ? red_score - green_score
                                  : green_score - red_score;
 }

@@ -15,6 +15,7 @@
 #define SCORE_MAX (INT_MAX)
 #define SCORE_MIN (-INT_MAX)
 #define SCORE_NAN (INT_MIN)
+#define SCORE_WIN (99999)
 
 extern const int BOARD_DISTANCES[81];
 

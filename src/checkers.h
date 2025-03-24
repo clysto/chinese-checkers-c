@@ -19,8 +19,8 @@
 extern const int BOARD_DISTANCES[81];
 
 enum color_t {
-  RED,
-  GREEN,
+  PIECE_RED,
+  PIECE_GREEN,
 };
 
 struct board_t {

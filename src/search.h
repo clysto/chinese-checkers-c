@@ -1,6 +1,8 @@
 #ifndef _SEARCH_H
 #define _SEARCH_H
 
+#include <time.h>
+
 #include "checkers.h"
 
 struct search_result_t {
@@ -22,12 +24,17 @@ struct hash_entry_t {
   struct move_t best;
 };
 
+int mtdf_search(struct game_t *game, int depth, int guess,
+                struct move_t *best_move, clock_t stop_time);
+
 int alpha_beta_search(struct game_t *game, int depth, int alpha, int beta,
-                      struct move_t *best_move);
+                      struct move_t *best_move, clock_t stop_time);
 
 void record_hash(uint64_t hash, int value, int depth, enum hash_flag_t flag,
                  struct move_t *best);
 
 struct hash_entry_t *probe_hash(uint64_t hash, int depth, int alpha, int beta);
+
+void clear_hash_table();
 
 #endif  // _SEARCH_H

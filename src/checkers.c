@@ -25,11 +25,17 @@ static inline int bitlen_u128(uint128_t u) {
   for (; i = bitlen_u128(u) - 1, u; u ^= ((uint128_t)1 << i))
 
 // 1(-1) 2(-1) 9(-7) 11(-8) 18(-14) 19(-14)
-#define hash_adj(p, adj)                                                     \
-  ((((adj >> (p - 10)) & 2) >> 1) | (((adj >> (p - 10)) & 4) >> 1) |         \
-   (((adj >> (p - 10)) & 0x200) >> 7) | (((adj >> (p - 10)) & 0x800) >> 8) | \
-   (((adj >> (p - 10)) & 0x40000) >> 14) |                                   \
-   (((adj >> (p - 10)) & 0x80000) >> 14))
+#define hash_adj(p, adj)                                                       \
+  (p > 10 ? ((((adj >> (p - 10)) & 2) >> 1) | (((adj >> (p - 10)) & 4) >> 1) | \
+             (((adj >> (p - 10)) & 0x200) >> 7) |                              \
+             (((adj >> (p - 10)) & 0x800) >> 8) |                              \
+             (((adj >> (p - 10)) & 0x40000) >> 14) |                           \
+             (((adj >> (p - 10)) & 0x80000) >> 14))                            \
+          : ((((adj << (10 - p)) & 2) >> 1) | (((adj << (10 - p)) & 4) >> 1) | \
+             (((adj << (10 - p)) & 0x200) >> 7) |                              \
+             (((adj << (10 - p)) & 0x800) >> 8) |                              \
+             (((adj << (10 - p)) & 0x40000) >> 14) |                           \
+             (((adj << (10 - p)) & 0x80000) >> 14)))
 
 const int BOARD_DISTANCES[81] = {
     0, 1, 2,  3,  4,  5,  6,  7,  8,   // 0
@@ -76,7 +82,7 @@ uint64_t game_hash(struct game_t *game) {
   int p;
   u128_for_each_1(red, p) { hash ^= _zobrist[p][0]; }
   u128_for_each_1(green, p) { hash ^= _zobrist[p][1]; }
-  if (game->turn == GREEN) {
+  if (game->turn == PIECE_GREEN) {
     hash ^= _zobrist_color;
   }
   game->hash = hash;
@@ -133,7 +139,7 @@ void sort_moves(struct list_head *moves, enum color_t color) {
         &buckets[distance + 16]);  // Offset by 16 to handle negative distances
   }
 
-  if (color == RED) {
+  if (color == PIECE_RED) {
     for (int i = 0; i < 64; i++) {
       list_splice_tail(&buckets[i], moves);
     }
@@ -150,27 +156,27 @@ void game_apply_move(struct game_t *game, struct move_t *move) {
     game->hash ^= _zobrist[move->dst][game->turn];
     game->hash ^= _zobrist_color;
   }
-  if (game->turn == RED) {
+  if (game->turn == PIECE_RED) {
     game->board.red &= ~MASK_AT(move->src);
     game->board.red |= MASK_AT(move->dst);
-    game->turn = GREEN;
+    game->turn = PIECE_GREEN;
   } else {
     game->board.green &= ~MASK_AT(move->src);
     game->board.green |= MASK_AT(move->dst);
-    game->turn = RED;
+    game->turn = PIECE_RED;
     game->round++;
   }
 }
 
 void game_undo_move(struct game_t *game, struct move_t *move) {
-  if (game->turn == GREEN) {
+  if (game->turn == PIECE_GREEN) {
     game->board.red &= ~MASK_AT(move->dst);
     game->board.red |= MASK_AT(move->src);
-    game->turn = RED;
+    game->turn = PIECE_RED;
   } else {
     game->board.green &= ~MASK_AT(move->dst);
     game->board.green |= MASK_AT(move->src);
-    game->turn = GREEN;
+    game->turn = PIECE_GREEN;
     game->round--;
   }
   if (game->hash != 0) {
@@ -184,15 +190,15 @@ void game_apply_null_move(struct game_t *game) {
   if (game->hash != 0) {
     game->hash ^= _zobrist_color;
   }
-  game->turn = game->turn == RED ? GREEN : RED;
-  if (game->turn == RED) {
+  game->turn = game->turn == PIECE_RED ? PIECE_GREEN : PIECE_RED;
+  if (game->turn == PIECE_RED) {
     game->round++;
   }
 }
 
 void game_undo_null_move(struct game_t *game) {
-  game->turn = game->turn == RED ? GREEN : RED;
-  if (game->turn == GREEN) {
+  game->turn = game->turn == PIECE_RED ? PIECE_GREEN : PIECE_RED;
+  if (game->turn == PIECE_GREEN) {
     game->round--;
   }
   if (game->hash != 0) {
@@ -201,7 +207,7 @@ void game_undo_null_move(struct game_t *game) {
 }
 
 int game_apply_move_with_check(struct game_t *game, struct move_t *move) {
-  if (game->turn == RED) {
+  if (game->turn == PIECE_RED) {
     if (!(game->board.red >> move->src & 1)) {
       return -1;
     }
@@ -234,8 +240,8 @@ int game_apply_move_with_check(struct game_t *game, struct move_t *move) {
 
   game_apply_move(game, move);
 
-  game->turn = game->turn == RED ? GREEN : RED;
-  if (game->turn == RED) {
+  game->turn = game->turn == PIECE_RED ? PIECE_GREEN : PIECE_RED;
+  if (game->turn == PIECE_RED) {
     game->round++;
   }
   return 0;
@@ -256,7 +262,7 @@ void game_str(struct game_t *game, char *str) {
     }
   }
   str[p++] = ' ';
-  str[p++] = game->turn == RED ? 'r' : 'g';
+  str[p++] = game->turn == PIECE_RED ? 'r' : 'g';
   p += sprintf(&str[p], " %d", game->round);
   str[p++] = '\0';
 }
@@ -305,11 +311,12 @@ int game_evaluate(struct game_t *game) {
   uint128_t green = game->board.green;
   u128_for_each_1(red, p) {
     red_score += (SCORE_TABLE[80 - p]);
-    red_score += ADJ_POSITIONS[p] & red ? 5 : 0;
+    // red_score += ADJ_POSITIONS[p] & red ? 5 : 0;
   }
   u128_for_each_1(green, p) {
     green_score += (SCORE_TABLE[p]);
-    green_score += ADJ_POSITIONS[p] & green ? 5 : 0;
+    // green_score += ADJ_POSITIONS[p] & green ? 5 : 0;
   }
-  return game->turn == RED ? red_score - green_score : green_score - red_score;
+  return game->turn == PIECE_RED ? red_score - green_score
+                                 : green_score - red_score;
 }

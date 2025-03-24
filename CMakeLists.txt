@@ -20,5 +20,5 @@ add_executable(checkers_gui
     src/gui/main.c
 )
 
-find_package(raylib 3.0 REQUIRED)
+find_package(raylib 5.0 REQUIRED)
 target_link_libraries(checkers_gui PRIVATE raylib)

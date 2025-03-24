@@ -68,6 +68,10 @@ void game_undo_null_move(struct game_t *game);
 
 int game_evaluate(struct game_t *game);
 
+void load_game(struct game_t *game, char* state);
+
+void init_game(struct game_t *game);
+
 uint64_t game_hash(struct game_t *game);
 
 #endif  // _CHECKERS_H

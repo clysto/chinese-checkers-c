@@ -1,8 +1,10 @@
 #include <pthread.h>
 #include <raylib.h>
 #include <stdatomic.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "../checkers.h"
 #include "../list.h"
@@ -12,9 +14,9 @@
 #define SCREEN_HEIGHT 600
 #define SQRT3 (1.7320508075688772)
 
-struct game_t game = {INIT_BOARD, PIECE_RED, 1, 0};
+struct game_t game;
 int selected = -1;
-enum color_t player_color = PIECE_RED;
+enum color_t player_color;
 uint128_t selected_moves = 0;
 atomic_bool search_done = false;
 atomic_bool search_running = false;
@@ -33,7 +35,7 @@ void *search_ai_move(void *arg) {
   struct move_t best_move;
   clock_t stop_time = clock() + CLOCKS_PER_SEC * 5;
   clear_hash_table();
-  for (int d = 3; d <= 16; d++) {
+  for (int d = 1; d <= 16; d++) {
     if (clock() > stop_time) {
       break;
     }
@@ -51,6 +53,9 @@ void *search_ai_move(void *arg) {
   }
   printf("AI move: %02d->%02d\n", best_move.src, best_move.dst);
   game_apply_move(&game, &best_move);
+  char str[128];
+  game_str(&game, str);
+  printf("Board:\n%s\n", str);
   ai_last_move = best_move;
   search_done = true;
   search_running = false;
@@ -59,13 +64,18 @@ void *search_ai_move(void *arg) {
 
 void gui_draw_board(float x0, float y0, float r, float gap) {
   Vector2 mouse = GetMousePosition();
+  bool mouse_in_circle = false;
   float dx = 0;
   float dy = 0;
   int index = 0, p = 0, selected_prev = selected;
   for (int i = 0; i <= 16; i++) {
     dx = -(i < 9 ? i : 16 - i) * (r + gap / 2);
     for (int j = 0; j < (i < 9 ? i + 1 : 17 - i); j++) {
-      p = PIECES_MAPPING[index];
+      p = player_color == PIECE_RED ? PIECES_MAPPING[index]
+                                    : 80 - PIECES_MAPPING[index];
+      if (CheckCollisionPointCircle(mouse, (Vector2){x0 + dx, y0 + dy}, r)) {
+        mouse_in_circle = true;
+      }
       if (CheckCollisionPointCircle(mouse, (Vector2){x0 + dx, y0 + dy}, r) &&
           IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
         if (game.turn == player_color) {
@@ -91,21 +101,21 @@ void gui_draw_board(float x0, float y0, float r, float gap) {
       }
       if (game.board.red >> p & 1) {
         if (selected == p && player_color == PIECE_RED) {
-          DrawCircleV((Vector2){x0 + dx, y0 + dy}, r, YELLOW);
+          DrawCircleV((Vector2){x0 + dx, y0 + dy}, r, WHITE);
           DrawCircleV((Vector2){x0 + dx, y0 + dy}, r - 3, RED);
         } else {
           DrawCircleV((Vector2){x0 + dx, y0 + dy}, r, RED);
         }
       } else if (game.board.green >> p & 1) {
         if (selected == p && player_color == PIECE_GREEN) {
-          DrawCircleV((Vector2){x0 + dx, y0 + dy}, r, YELLOW);
+          DrawCircleV((Vector2){x0 + dx, y0 + dy}, r, WHITE);
           DrawCircleV((Vector2){x0 + dx, y0 + dy}, r - 3, GREEN);
         } else {
           DrawCircleV((Vector2){x0 + dx, y0 + dy}, r, GREEN);
         }
       } else {
         if (selected != -1 && selected_moves >> p & 1) {
-          DrawCircleV((Vector2){x0 + dx, y0 + dy}, r, YELLOW);
+          DrawCircleV((Vector2){x0 + dx, y0 + dy}, r, WHITE);
         } else {
           DrawCircleV((Vector2){x0 + dx, y0 + dy}, r, GRAY);
         }
@@ -113,7 +123,7 @@ void gui_draw_board(float x0, float y0, float r, float gap) {
 
       if (ai_last_move.src == p || ai_last_move.dst == p) {
         DrawRectangleV((Vector2){x0 + dx - 3, y0 + dy - 3}, (Vector2){6, 6},
-                       WHITE);
+                       SKYBLUE);
       }
 
       index++;
@@ -133,14 +143,41 @@ void gui_draw_board(float x0, float y0, float r, float gap) {
       free(move);
     }
   }
+  if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !mouse_in_circle) {
+    selected = -1;
+    selected_moves = 0;
+  }
 }
 
-int main(void) {
-  init_zobrist();
-  game_hash(&game);
+int main(int argc, char *argv[]) {
+  if (argc != 2) {
+    printf("Usage: %s [red|green]\n", argv[0]);
+    return 1;
+  }
+  if (strcmp(argv[1], "red") == 0) {
+    player_color = PIECE_RED;
+  } else if (strcmp(argv[1], "green") == 0) {
+    player_color = PIECE_GREEN;
+  } else {
+    printf("Usage: %s [red|green]\n", argv[0]);
+    return 1;
+  }
+  freopen("/dev/null", "w", stderr);
 
+  init_zobrist();
+  init_game(&game);
+
+  if (player_color == PIECE_GREEN) {
+    pthread_t thread_id;
+    search_done = false;
+    search_running = true;
+    pthread_create(&thread_id, NULL, search_ai_move, NULL);
+    pthread_detach(thread_id);
+  }
+
+  SetTraceLogLevel(LOG_NONE);
   SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI);
-  InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "中国跳棋");
+  InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Chinese Checkers");
   SetTargetFPS(60);
 
   while (!WindowShouldClose()) {

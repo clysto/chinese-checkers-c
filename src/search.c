@@ -5,6 +5,10 @@
 #include "list.h"
 #include "stdlib.h"
 
+#define forward_distance(color, src, dst)                             \
+  (color == PIECE_GREEN ? BOARD_DISTANCES[dst] - BOARD_DISTANCES[src] \
+                        : BOARD_DISTANCES[src] - BOARD_DISTANCES[dst])
+
 #define free_moves(moves)                          \
   do {                                             \
     list_for_each_safe(pos, _n, moves) {           \
@@ -16,7 +20,7 @@
 #define is_forwards(color, src, dst) \
   ((color == PIECE_RED && src >= dst) || (color == PIECE_GREEN && src <= dst))
 
-#define NULL_MOVE_R 2
+#define NULL_MOVE_R 3
 #define TABLE_SIZE (1 << 22)
 #define TABLE_MASK ((1 << 22) - 1)
 
@@ -27,17 +31,24 @@ int alpha_beta_search(struct game_t *game, int depth, int alpha, int beta,
   int score;
   struct list_head *pos, *_n;
   struct move_t *move;
-  struct move_t _best_move;
+  struct move_t _best_move, _hash_move = {-1, -1};
   enum hash_flag_t flag = HASH_ALPHA;
   struct hash_entry_t *entry = probe_hash(game->hash, depth, alpha, beta);
   LIST_HEAD(moves);
 
   // Look up hash table
-  if (entry != NULL && entry->depth >= depth) {
-    if (entry->flag == HASH_EXACT) {
-      *best_move = entry->best;
+  if (entry != NULL) {
+    if (entry->depth >= depth) {
+      if (entry->flag == HASH_EXACT) {
+        *best_move = entry->best;
+      }
+      return entry->value;
+    } else {
+      // history best move
+      if (entry->flag == HASH_EXACT || entry->flag == HASH_BETA) {
+        _hash_move = entry->best;
+      }
     }
-    return entry->value;
   }
 
   if (depth <= 0) {
@@ -56,17 +67,33 @@ int alpha_beta_search(struct game_t *game, int depth, int alpha, int beta,
   }
 
   gen_moves(&(game->board),
-            game->turn == PIECE_RED ? game->board.red : game->board.green, &moves);
+            game->turn == PIECE_RED ? game->board.red : game->board.green,
+            &moves);
   sort_moves(&moves, game->turn);
-  list_for_each_safe(pos, _n, &moves) {
+
+  if (_hash_move.src != -1) {
+    // try hash move first
+    _hash_move.list.next = moves.next;
+    pos = &_hash_move.list;
+  } else {
+    pos = moves.next;
+  }
+  while (pos != &moves) {
     move = list_entry(pos, struct move_t, list);
+
+    if (forward_distance(game->turn, move->src, move->dst) < -1) {
+      // skip backward moves
+      pos = pos->next;
+      continue;
+    }
+
     game_apply_move(game, move);
     score = -alpha_beta_search(game, depth - 1, -beta, -alpha, &_best_move,
                                stop_time);
     game_undo_move(game, move);
     if (score >= beta) {
-      free_moves(&moves);
       record_hash(game->hash, beta, depth, HASH_BETA, move);
+      free_moves(&moves);
       return beta;
     }
     if (score > alpha) {
@@ -77,6 +104,7 @@ int alpha_beta_search(struct game_t *game, int depth, int alpha, int beta,
     if (clock() > stop_time) {
       return SCORE_NAN;
     }
+    pos = pos->next;
   }
 
   record_hash(game->hash, alpha, depth, flag, best_move);
@@ -87,6 +115,9 @@ int alpha_beta_search(struct game_t *game, int depth, int alpha, int beta,
 void record_hash(uint64_t hash, int value, int depth, enum hash_flag_t flag,
                  struct move_t *best) {
   struct hash_entry_t *entry = &_hash_table[hash & TABLE_MASK];
+  if (entry->hash == hash && entry->depth > depth) {
+    return;
+  }
   entry->hash = hash;
   entry->value = value;
   entry->depth = depth;

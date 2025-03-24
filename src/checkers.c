@@ -37,10 +37,11 @@ static inline int lsb_u128(uint128_t u) {
     return -1;
   }
   uint64_t lower = u;
+  uint64_t upper = u >> 64;
   if (lower) {
     return __builtin_ctzll(lower);
   } else {
-    return 64 + __builtin_ctzll(u >> 64);
+    return 64 + __builtin_ctzll(upper);
   }
 }
 
@@ -292,6 +293,51 @@ void game_str(struct game_t *game, char *str) {
   str[p++] = '\0';
 }
 
+void init_game(struct game_t *game) {
+  game->board.red = INITIAL_RED;
+  game->board.green = INITIAL_GREEN;
+  game->turn = PIECE_RED;
+  game->round = 1;
+  game_hash(game);
+}
+
+void load_game(struct game_t *game, char *state) {
+  game->board.red = 0;
+  game->board.green = 0;
+  game->turn = PIECE_RED;
+  game->round = 0;
+  game->hash = 0;
+  char round[16];
+  int round_len = 0;
+  int p = 0;
+  int index = 0;
+  while (state[p] != '\0') {
+    if (index < 81) {
+      if (state[p] == '1') {
+        game->board.red |= MASK_AT(index);
+        index++;
+      } else if (state[p] == '2') {
+        game->board.green |= MASK_AT(index);
+        index++;
+      } else if (state[p] == '0') {
+        index++;
+      }
+    } else {
+      if (state[p] == 'r') {
+        game->turn = PIECE_RED;
+      } else if (state[p] == 'g') {
+        game->turn = PIECE_GREEN;
+      } else if (state[p] >= '0' && state[p] <= '9' && round_len < 15) {
+        round[round_len++] = state[p];
+      }
+    }
+    p++;
+  }
+  round[round_len] = '\0';
+  game->round = atoi(round);
+  game_hash(game);
+}
+
 void draw_board(struct board_t *board) {
   int p = 0;
   for (int i = 0; i < 9; i++) {
@@ -335,10 +381,10 @@ int game_evaluate(struct game_t *game) {
   uint128_t red = game->board.red;
   uint128_t green = game->board.green;
 
-  if (BOARD_DISTANCES[msb_u128(red)] == 3) {
+  if (red == INITIAL_GREEN) {
     return game->turn == PIECE_RED ? SCORE_WIN : -SCORE_WIN;
   }
-  if (BOARD_DISTANCES[lsb_u128(green)] == 13) {
+  if (green == INITIAL_RED) {
     return game->turn == PIECE_GREEN ? SCORE_WIN : -SCORE_WIN;
   }
 

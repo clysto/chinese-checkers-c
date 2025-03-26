@@ -1,9 +1,10 @@
 #include "search.h"
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "list.h"
-#include "stdlib.h"
 
 #define forward_distance(color, src, dst)                             \
   (color == PIECE_GREEN ? BOARD_DISTANCES[dst] - BOARD_DISTANCES[src] \
@@ -33,7 +34,7 @@ int alpha_beta_search(struct game_t *game, int depth, int alpha, int beta,
   int score;
   struct list_head *pos, *_n;
   struct move_t *move;
-  struct move_t _best_move, _hash_move = {-1, -1};
+  struct move_t _best_move, _hash_move = {-1, -1}, _killer_move0, _killer_move1;
   enum hash_flag_t flag = HASH_ALPHA;
   bool found_pv = false, already_gen_moves = false;
   struct hash_entry_t *entry = probe_hash(game->hash, depth, alpha, beta);
@@ -71,15 +72,17 @@ int alpha_beta_search(struct game_t *game, int depth, int alpha, int beta,
   pos = moves.next;
   if (_killer_moves[depth][0].src != -1 &&
       game_is_move_valid(game, &_killer_moves[depth][0])) {
-    // try killer move 1
-    _killer_moves[depth][0].list.next = pos;
-    pos = &_killer_moves[depth][0].list;
+    // try killer move 0
+    _killer_move0 = _killer_moves[depth][0];
+    _killer_move0.list.next = pos;
+    pos = &_killer_move0.list;
   }
   if (_killer_moves[depth][1].src != -1 &&
       game_is_move_valid(game, &_killer_moves[depth][1])) {
-    // try killer move 2
-    _killer_moves[depth][1].list.next = pos;
-    pos = &_killer_moves[depth][1].list;
+    // try killer move 1
+    _killer_move1 = _killer_moves[depth][1];
+    _killer_move1.list.next = pos;
+    pos = &_killer_move1.list;
   }
   if (_hash_move.src != -1) {
     // try hash move first
@@ -177,25 +180,6 @@ void clear_hash_table() {
   for (int i = 0; i < TABLE_SIZE; i++) {
     _hash_table[i].hash = 0;
   }
-}
-
-int mtdf_search(struct game_t *game, int depth, int guess,
-                struct move_t *best_move, clock_t stop_time) {
-  int beta;
-  int upperbound = SCORE_MAX;
-  int lowerbound = SCORE_MIN;
-  int score = guess;
-  do {
-    beta = (score == lowerbound ? score + 1 : score);
-    score =
-        alpha_beta_search(game, depth, beta - 1, beta, best_move, stop_time);
-    if (score < beta) {
-      upperbound = score;
-    } else {
-      lowerbound = score;
-    }
-  } while (lowerbound < upperbound);
-  return score;
 }
 
 void clear_killer_moves() {

@@ -25,8 +25,6 @@ struct hash_entry_t {
   struct move_t best;
 };
 
-int mtdf_search(struct game_t *game, int depth, int guess,
-                struct move_t *best_move, clock_t stop_time);
 
 int alpha_beta_search(struct game_t *game, int depth, int alpha, int beta,
                       struct move_t *best_move, clock_t stop_time);

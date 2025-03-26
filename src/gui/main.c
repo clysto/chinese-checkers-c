@@ -35,16 +35,19 @@ void *search_ai_move(void *arg) {
   struct move_t best_move;
   clock_t stop_time = clock() + CLOCKS_PER_SEC * 5;
   clear_hash_table();
-  clear_killer_moves();
-  for (int d = 1; d <= 16; d++) {
+  int alpha = SCORE_MIN;
+  int beta = SCORE_MAX;
+  int val_window = 100;
+  for (int d = 1; d <= 32; d++) {
     if (clock() > stop_time) {
       break;
     }
+    clear_killer_moves();
     struct move_t _best_move;
-    int eval = alpha_beta_search(&_game, d, SCORE_MIN, SCORE_MAX, &_best_move,
-                                 stop_time);
+    int eval =
+        alpha_beta_search(&_game, d, alpha, beta, &_best_move, stop_time);
     if (eval != SCORE_NAN) {
-      printf("Depth: %d, Eval: %d, Move: %02d->%02d\n", d, eval, _best_move.src,
+      printf("Depth: %2d, Eval: %6d, Move: %02d->%02d\n", d, eval, _best_move.src,
              _best_move.dst);
       if (eval == SCORE_WIN) {
         best_move = _best_move;
@@ -52,12 +55,14 @@ void *search_ai_move(void *arg) {
       }
       best_move = _best_move;
     }
+    // alpha = eval - val_window;
+    // beta = eval + val_window;
   }
   printf("AI move: %02d->%02d\n", best_move.src, best_move.dst);
   game_apply_move(&game, &best_move);
   char str[128];
   game_str(&game, str);
-  printf("Board:\n%s\n", str);
+  printf("Board: %s\n", str);
   ai_last_move = best_move;
   search_done = true;
   search_running = false;

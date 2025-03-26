@@ -71,15 +71,34 @@ int main1(int argc, char *argv[]) {
 // }
 
 int main(void) {
+  LIST_HEAD(moves);
   init_zobrist();
   struct game_t game;
-  init_game(&game);
-  char s[128];
-  game_str(&game, s);
-  printf("%s\n", s);
-  game_apply_move(&game, &(struct move_t){53, 52});
+  load_game(&game, "222200000/222000000/220000000/020000000/000000000/000000011/000000011/000000110/000001111 g 2");
+  // init_game(&game);
+  // char s[128];
+  // game_str(&game, s);
+  // printf("%s\n", s);
+  // game_apply_move(&game, &(struct move_t){53, 52});
+  // game_apply_move(&game, &(struct move_t){27, 28});
+  // game_apply_move(&game, &(struct move_t){71, 51});
   draw_board(&game.board);
-  bool a = game_is_move_valid(&game, &(struct move_t){27, 28});
-  printf("%d\n", a);
+  for (int src = 0; src <= 80; src++) {
+    for (int dst = 0; dst <= 80; dst++) {
+      if (game_is_move_valid(&game, &(struct move_t){src, dst})) {
+        printf("Move: %02d->%02d\n", src, dst);
+      }
+    }
+  }
+  gen_moves(&game.board, game.board.green, &moves);
+  printf("\n");
+  print_all_moves(&moves);
+  // int a = game_is_move_valid(&game, &(struct move_t){52, 29});
+  // printf("%d\n", a);
+  // game_apply_move(&game, &(struct move_t){62, 44});
+  // draw_board(&game.board);
+  // game_undo_move(&game, &(struct move_t){62, 44});
+  // draw_board(&game.board);
+
   return 0;
 }

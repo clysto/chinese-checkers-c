@@ -118,12 +118,26 @@ uint64_t game_hash(struct game_t *game) {
 int gen_moves(struct board_t *board, uint128_t from, struct list_head *moves) {
   int len = 0;
   int src, dst;
+  uint128_t all = board->red | board->green;
   u128_for_each_1(from, src) {
     uint128_t to = 0;
     uint128_t adj = ADJ_POSITIONS[src];
     to |= adj;
-    to &= ~(board->red | board->green) & BOARD_MASK;
-    jump_moves(board, src, &to);
+    to &= ~all & BOARD_MASK;
+
+    uint128_t jump_to = 0, prev_jump_to = MASK_AT(src), jumps;
+    while ((prev_jump_to | jump_to) != jump_to) {
+      jump_to |= prev_jump_to;
+      jumps = 0;
+      u128_for_each_1(prev_jump_to, dst) {
+        adj = ADJ_POSITIONS[dst] & all;
+        jumps |= JUMP_POSITIONS[dst][hash_adj(dst, adj)] & BOARD_MASK;
+      }
+      prev_jump_to = jumps & ~all;
+    }
+    jump_to &= ~MASK_AT(src);
+    to |= jump_to;
+
     u128_for_each_1(to, dst) {
       struct move_t *m = (struct move_t *)malloc(sizeof(struct move_t));
       m->src = src;
@@ -171,11 +185,11 @@ bool game_is_move_valid(struct game_t *game, struct move_t *move) {
     u128_for_each_1(prev_jump_to, to) {
       adj = ADJ_POSITIONS[to] & all;
       jumps |= JUMP_POSITIONS[to][hash_adj(to, adj)] & BOARD_MASK;
-      if (jumps >> move->dst & 1) {
+      if (jumps & MASK_AT(move->dst)) {
         return true;
       }
     }
-    prev_jump_to = jumps;
+    prev_jump_to = jumps & ~all;
   }
   return false;
 }
@@ -448,8 +462,8 @@ int game_evaluate(struct game_t *game) {
   u128_for_each_1(red, p) { red_score += (SCORE_TABLE[80 - p]); }
   u128_for_each_1(green, p) { green_score += (SCORE_TABLE[p]); }
 
-  red_score = 2 * red_score + red_moves_score;
-  green_score = 2 * green_score + green_moves_score;
+  red_score = 3 * red_score + red_moves_score;
+  green_score = 3 * green_score + green_moves_score;
 
   return game->turn == PIECE_RED ? red_score - green_score
                                  : green_score - red_score;

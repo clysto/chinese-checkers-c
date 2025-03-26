@@ -77,5 +77,9 @@ int main(void) {
   char s[128];
   game_str(&game, s);
   printf("%s\n", s);
+  game_apply_move(&game, &(struct move_t){53, 52});
+  draw_board(&game.board);
+  bool a = game_is_move_valid(&game, &(struct move_t){27, 28});
+  printf("%d\n", a);
   return 0;
 }

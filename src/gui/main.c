@@ -35,6 +35,7 @@ void *search_ai_move(void *arg) {
   struct move_t best_move;
   clock_t stop_time = clock() + CLOCKS_PER_SEC * 5;
   clear_hash_table();
+  clear_killer_moves();
   for (int d = 1; d <= 16; d++) {
     if (clock() > stop_time) {
       break;
@@ -43,7 +44,8 @@ void *search_ai_move(void *arg) {
     int eval = alpha_beta_search(&_game, d, SCORE_MIN, SCORE_MAX, &_best_move,
                                  stop_time);
     if (eval != SCORE_NAN) {
-      printf("Depth: %d, Eval: %d\n", d, eval);
+      printf("Depth: %d, Eval: %d, Move: %02d->%02d\n", d, eval, _best_move.src,
+             _best_move.dst);
       if (eval == SCORE_WIN) {
         best_move = _best_move;
         break;
@@ -101,29 +103,30 @@ void gui_draw_board(float x0, float y0, float r, float gap) {
       }
       if (game.board.red >> p & 1) {
         if (selected == p && player_color == PIECE_RED) {
-          DrawCircleV((Vector2){x0 + dx, y0 + dy}, r, WHITE);
+          DrawCircleV((Vector2){x0 + dx, y0 + dy}, r,
+                      ColorBrightness(RED, 0.7));
           DrawCircleV((Vector2){x0 + dx, y0 + dy}, r - 3, RED);
         } else {
           DrawCircleV((Vector2){x0 + dx, y0 + dy}, r, RED);
         }
       } else if (game.board.green >> p & 1) {
         if (selected == p && player_color == PIECE_GREEN) {
-          DrawCircleV((Vector2){x0 + dx, y0 + dy}, r, WHITE);
+          DrawCircleV((Vector2){x0 + dx, y0 + dy}, r,
+                      ColorBrightness(GREEN, 0.7));
           DrawCircleV((Vector2){x0 + dx, y0 + dy}, r - 3, GREEN);
         } else {
           DrawCircleV((Vector2){x0 + dx, y0 + dy}, r, GREEN);
         }
       } else {
+        DrawCircleV((Vector2){x0 + dx, y0 + dy}, r, GRAY);
         if (selected != -1 && selected_moves >> p & 1) {
-          DrawCircleV((Vector2){x0 + dx, y0 + dy}, r, WHITE);
-        } else {
-          DrawCircleV((Vector2){x0 + dx, y0 + dy}, r, GRAY);
+          DrawCircleV((Vector2){x0 + dx, y0 + dy}, r, ColorAlpha(WHITE, 0.6));
         }
       }
 
       if (ai_last_move.src == p || ai_last_move.dst == p) {
         DrawRectangleV((Vector2){x0 + dx - 3, y0 + dy - 3}, (Vector2){6, 6},
-                       SKYBLUE);
+                       ColorAlpha(WHITE, 0.7));
       }
 
       index++;
@@ -166,6 +169,7 @@ int main(int argc, char *argv[]) {
 
   init_zobrist();
   init_game(&game);
+  clear_killer_moves();
 
   if (player_color == PIECE_GREEN) {
     pthread_t thread_id;

@@ -148,6 +148,38 @@ void jump_moves(struct board_t *board, int src, uint128_t *to) {
   return;
 }
 
+bool game_is_move_valid(struct game_t *game, struct move_t *move) {
+  uint128_t all = game->board.red | game->board.green;
+  int to;
+  if (all >> move->dst & 1 || !(all >> move->src & 1)) {
+    return false;
+  }
+  if (MASK_AT(move->src) &
+      (game->turn == PIECE_RED ? game->board.green : game->board.red)) {
+    return false;
+  }
+  // check for adjacent moves
+  if (ADJ_POSITIONS[move->src] & MASK_AT(move->dst)) {
+    return true;
+  }
+  // check for jumps
+  uint128_t jump_to = 0, prev_jump_to = MASK_AT(move->src), jumps = 0;
+  uint128_t adj;
+  while ((prev_jump_to | jump_to) != jump_to) {
+    jump_to |= prev_jump_to;
+    jumps = 0;
+    u128_for_each_1(prev_jump_to, to) {
+      adj = ADJ_POSITIONS[to] & all;
+      jumps |= JUMP_POSITIONS[to][hash_adj(to, adj)] & BOARD_MASK;
+      if (jumps >> move->dst & 1) {
+        return true;
+      }
+    }
+    prev_jump_to = jumps;
+  }
+  return false;
+}
+
 void sort_moves(struct list_head *moves, enum color_t color) {
   struct list_head buckets[64];
   for (int i = 0; i < 64; i++) {
@@ -377,7 +409,8 @@ void draw_board(struct board_t *board) {
 }
 
 int game_evaluate(struct game_t *game) {
-  int p, red_score = 0, green_score = 0;
+  int p, red_score = 0, green_score = 0, red_moves_score = 0,
+         green_moves_score = 0;
   uint128_t red = game->board.red;
   uint128_t green = game->board.green;
 
@@ -388,8 +421,36 @@ int game_evaluate(struct game_t *game) {
     return game->turn == PIECE_GREEN ? SCORE_WIN : -SCORE_WIN;
   }
 
+  LIST_HEAD(red_moves);
+  LIST_HEAD(green_moves);
+
+  gen_moves(&(game->board), red, &red_moves);
+  gen_moves(&(game->board), green, &green_moves);
+
+  struct list_head *pos, *_n;
+  list_for_each_safe(pos, _n, &red_moves) {
+    struct move_t *move = list_entry(pos, struct move_t, list);
+    if (BOARD_DISTANCES[move->src] - BOARD_DISTANCES[move->dst] > 0) {
+      red_moves_score += 1;
+    }
+    list_del(pos);
+    free(move);
+  }
+  list_for_each_safe(pos, _n, &green_moves) {
+    struct move_t *move = list_entry(pos, struct move_t, list);
+    if (BOARD_DISTANCES[move->dst] - BOARD_DISTANCES[move->src] > 0) {
+      green_moves_score += 1;
+    }
+    list_del(pos);
+    free(move);
+  }
+
   u128_for_each_1(red, p) { red_score += (SCORE_TABLE[80 - p]); }
   u128_for_each_1(green, p) { green_score += (SCORE_TABLE[p]); }
+
+  red_score = 2 * red_score + red_moves_score;
+  green_score = 2 * green_score + green_moves_score;
+
   return game->turn == PIECE_RED ? red_score - green_score
                                  : green_score - red_score;
 }

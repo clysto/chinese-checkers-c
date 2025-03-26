@@ -2,6 +2,7 @@
 #define _CHECKERS_H
 
 #include <limits.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "list.h"
@@ -68,9 +69,11 @@ void game_undo_null_move(struct game_t *game);
 
 int game_evaluate(struct game_t *game);
 
-void load_game(struct game_t *game, char* state);
+void load_game(struct game_t *game, char *state);
 
 void init_game(struct game_t *game);
+
+bool game_is_move_valid(struct game_t *game, struct move_t *move);
 
 uint64_t game_hash(struct game_t *game);
 

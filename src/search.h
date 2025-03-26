@@ -2,6 +2,7 @@
 #define _SEARCH_H
 
 #include <time.h>
+#include <stdbool.h>
 
 #include "checkers.h"
 
@@ -36,5 +37,7 @@ void record_hash(uint64_t hash, int value, int depth, enum hash_flag_t flag,
 struct hash_entry_t *probe_hash(uint64_t hash, int depth, int alpha, int beta);
 
 void clear_hash_table();
+
+void clear_killer_moves();
 
 #endif  // _SEARCH_H

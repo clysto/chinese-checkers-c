@@ -75,6 +75,8 @@ void init_game(struct game_t *game);
 
 bool game_is_move_valid(struct game_t *game, struct move_t *move);
 
+bool is_game_over(struct game_t *game);
+
 uint64_t game_hash(struct game_t *game);
 
 #endif  // _CHECKERS_H

@@ -468,3 +468,10 @@ int game_evaluate(struct game_t *game) {
   return game->turn == PIECE_RED ? red_score - green_score
                                  : green_score - red_score;
 }
+
+bool is_game_over(struct game_t *game) {
+  if (game->board.red == INITIAL_GREEN || game->board.green == INITIAL_RED) {
+    return true;
+  }
+  return false;
+}

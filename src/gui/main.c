@@ -34,7 +34,8 @@ static inline void rotate60(float *x, float *y) {
 
 #define foreach_circle(x, y, radius, gap, p)                                   \
   for (p = 0; x = (p % 9) * (2 * radius + gap) + (p / 9) * (radius + gap / 2), \
-      y = (p / 9) * (2 * radius + gap) * SQRT3 / 2, rotate60(&x, &y), p < 81;  \
+      y = (p / 9) * (2 * radius + gap) * SQRT3 / 2, rotate60(&x, &y),          \
+      y -= 8 * (2 * radius + gap) * SQRT3 / 2, p < 81;                         \
        p++)
 
 void draw_board_background(Vector2 *points, float r) {
@@ -188,7 +189,9 @@ void gui_draw_board(float x0, float y0, float r, float gap) {
   int points_len = 0;
   Vector2 center;
 
-  if (GetKeyPressed() == KEY_R && game.turn == player_color && !game_over &&
+  int key_code = GetKeyPressed();
+
+  if (key_code == KEY_R && game.turn == player_color && !game_over &&
       player_last_move.src != -1) {
     game_undo_move(&game, &ai_last_move);
     game_undo_move(&game, &player_last_move);
@@ -272,7 +275,7 @@ int main(int argc, char *argv[]) {
     ClearBackground(GetColor(0xe8b061ff));
 
     float x0 = SCREEN_WIDTH / 2;
-    float y0 = 60;
+    float y0 = SCREEN_HEIGHT / 2;
     gui_draw_board(x0, y0, 15, 5);
 
     EndDrawing();

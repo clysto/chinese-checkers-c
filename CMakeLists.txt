@@ -22,5 +22,15 @@ add_executable(checkers_gui
     src/gui/main.c
 )
 
-find_package(raylib 5.0 REQUIRED)
-target_link_libraries(checkers_gui PRIVATE raylib)
+if (ZIG_CROSS_COMPILE_LINUX)
+    message(STATUS "Cross-compiling for Linux")
+    target_include_directories(checkers_gui PRIVATE ${CMAKE_SOURCE_DIR}/external/raylib-5.5_linux_amd64/include)
+    target_link_libraries(checkers_gui PRIVATE ${CMAKE_SOURCE_DIR}/external/raylib-5.5_linux_amd64/lib/libraylib.a)
+elseif(ZIG_CROSS_COMPILE_WINDOWS)
+    message(STATUS "Cross-compiling for Windows")
+    target_include_directories(checkers_gui PRIVATE ${CMAKE_SOURCE_DIR}/external/raylib-5.5_win64_mingw-w64/include)
+    target_link_libraries(checkers_gui PRIVATE ${CMAKE_SOURCE_DIR}/external/raylib-5.5_win64_mingw-w64/lib/raylib.dll)
+else()
+    find_package(raylib 5.0 REQUIRED)
+    target_link_libraries(checkers_gui PRIVATE raylib)
+endif()

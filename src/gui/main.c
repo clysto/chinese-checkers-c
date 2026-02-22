@@ -13,6 +13,9 @@
 
 #define SCREEN_WIDTH 400
 #define SCREEN_HEIGHT 600
+#define MIN_SCREEN_WIDTH 300
+#define MIN_SCREEN_HEIGHT 450
+#define MIN_SCALE 0.35f
 #define SQRT3 (1.7320508075688772)
 
 struct game_t game;
@@ -157,17 +160,25 @@ void handle_click(int p) {
 }
 
 void gui_draw_circle(float x, float y, float radius, int p) {
+  float ring_thickness = radius * (3.5f / 15.0f);
+  if (ring_thickness < 1.5f) {
+    ring_thickness = 1.5f;
+  }
+  if (ring_thickness > radius - 1.0f) {
+    ring_thickness = radius - 1.0f;
+  }
+
   if (game.board.red >> p & 1) {
     if (p == selected) {
       DrawCircleV((Vector2){x, y}, radius, GetColor(0xffafafff));
-      DrawCircleV((Vector2){x, y}, radius - 3.5, GetColor(0xe50000ff));
+      DrawCircleV((Vector2){x, y}, radius - ring_thickness, GetColor(0xe50000ff));
     } else {
       DrawCircleV((Vector2){x, y}, radius, GetColor(0xe50000ff));
     }
   } else if (game.board.green >> p & 1) {
     if (p == selected) {
       DrawCircleV((Vector2){x, y}, radius, GetColor(0xcfffcfff));
-      DrawCircleV((Vector2){x, y}, radius - 3.5, GetColor(0x35cc35ff));
+      DrawCircleV((Vector2){x, y}, radius - ring_thickness, GetColor(0x35cc35ff));
     } else {
       DrawCircleV((Vector2){x, y}, radius, GetColor(0x35cc35ff));
     }
@@ -183,6 +194,11 @@ void gui_draw_circle(float x, float y, float radius, int p) {
 void gui_draw_board(float x0, float y0, float r, float gap) {
   Vector2 mouse = GetMousePosition();
   bool click_circle = false;
+  float marker_size = r * (6.0f / 15.0f);
+  if (marker_size < 2.0f) {
+    marker_size = 2.0f;
+  }
+  float marker_half = marker_size * 0.5f;
   float dx = 0, dy = 0;
   int p, _p;
   Vector2 points[5];
@@ -227,7 +243,8 @@ void gui_draw_board(float x0, float y0, float r, float gap) {
     gui_draw_circle(x0 + dx, y0 + dy, r, _p);
 
     if (ai_last_move.src == _p || ai_last_move.dst == _p) {
-      DrawRectangleV((Vector2){x0 + dx - 3, y0 + dy - 3}, (Vector2){6, 6},
+      DrawRectangleV((Vector2){x0 + dx - marker_half, y0 + dy - marker_half},
+                     (Vector2){marker_size, marker_size},
                      ColorAlpha(WHITE, 0.7));
     }
   }
@@ -265,8 +282,9 @@ int main(int argc, char *argv[]) {
   }
 
   SetTraceLogLevel(LOG_NONE);
-  SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI);
+  SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_HIGHDPI | FLAG_WINDOW_RESIZABLE);
   InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Chinese Checkers");
+  SetWindowMinSize(MIN_SCREEN_WIDTH, MIN_SCREEN_HEIGHT);
   SetTargetFPS(60);
 
   while (!WindowShouldClose()) {
@@ -274,9 +292,18 @@ int main(int argc, char *argv[]) {
 
     ClearBackground(GetColor(0xe8b061ff));
 
-    float x0 = SCREEN_WIDTH / 2;
-    float y0 = SCREEN_HEIGHT / 2;
-    gui_draw_board(x0, y0, 15, 5);
+    int w = GetScreenWidth();
+    int h = GetScreenHeight();
+    float sx = (float)w / (float)SCREEN_WIDTH;
+    float sy = (float)h / (float)SCREEN_HEIGHT;
+    float scale = sx < sy ? sx : sy;
+    if (scale < MIN_SCALE) {
+      scale = MIN_SCALE;
+    }
+
+    float x0 = (float)w * 0.5f;
+    float y0 = (float)h * 0.5f;
+    gui_draw_board(x0, y0, 15.0f * scale, 5.0f * scale);
 
     EndDrawing();
   }

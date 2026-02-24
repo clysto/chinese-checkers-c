@@ -3,6 +3,7 @@
 #include <rlgl.h>
 #include <stdatomic.h>
 #include <stdbool.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -191,6 +192,59 @@ void gui_draw_circle(float x, float y, float radius, int p) {
   }
 }
 
+static void draw_turn_indicator(Vector2 *corners, float r, float gap) {
+  if (game_over) {
+    return;
+  }
+  if (game.turn != PIECE_RED && game.turn != PIECE_GREEN) {
+    return;
+  }
+
+  float min_x = corners[0].x;
+  float max_x = corners[0].x;
+  float min_y = corners[0].y;
+  float max_y = corners[0].y;
+  for (int i = 1; i < 4; i++) {
+    if (corners[i].x < min_x) {
+      min_x = corners[i].x;
+    }
+    if (corners[i].x > max_x) {
+      max_x = corners[i].x;
+    }
+    if (corners[i].y < min_y) {
+      min_y = corners[i].y;
+    }
+    if (corners[i].y > max_y) {
+      max_y = corners[i].y;
+    }
+  }
+
+  float row_step = (2.0f * r + gap) * SQRT3 / 2.0f;
+  float edge_offset = -4 * r;
+  float indicator_x;
+  float indicator_y;
+  if (game.turn == player_color) {
+    indicator_x = max_x + edge_offset;
+    indicator_y = max_y - row_step;
+  } else {
+    indicator_x = min_x - edge_offset;
+    indicator_y = min_y + row_step;
+  }
+
+  float indicator_radius = 0.45f * r;
+  if (indicator_radius < 3.0f) {
+    indicator_radius = 3.0f;
+  }
+
+  float t = (float)GetTime();
+  float phase = 0.5f + 0.5f * sinf(6.28318530718f * t);
+  float alpha = 0.35f + phase * 0.65f;
+
+  Color base = GetColor(0x6b4423ff);
+  DrawCircleV((Vector2){indicator_x, indicator_y}, indicator_radius,
+              ColorAlpha(base, alpha));
+}
+
 void gui_draw_board(float x0, float y0, float r, float gap) {
   Vector2 mouse = GetMousePosition();
   bool click_circle = false;
@@ -248,6 +302,8 @@ void gui_draw_board(float x0, float y0, float r, float gap) {
                      ColorAlpha(WHITE, 0.7));
     }
   }
+
+  draw_turn_indicator(points, r, gap);
 
   if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !click_circle) {
     selected = -1;
